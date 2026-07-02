@@ -129,11 +129,23 @@ export default function ChartOfAccounts() {
       }
     } catch (err: any) {
       console.error("Upload error:", err)
-      const errorMsg =
-        err.response?.data?.error ||
-        err.response?.data?.message ||
-        err.message ||
-        "Error al cargar el archivo"
+      console.error("Response status:", err.response?.status)
+      console.error("Response data:", err.response?.data)
+
+      let errorMsg = "Error al cargar el archivo"
+
+      if (err.response?.status === 404) {
+        errorMsg = "Endpoint no encontrado (404). Verifica que el backend esté actualizado."
+      } else if (err.response?.data?.error) {
+        errorMsg = typeof err.response.data.error === 'string'
+          ? err.response.data.error
+          : "Error en el servidor"
+      } else if (err.response?.data?.message) {
+        errorMsg = err.response.data.message
+      } else if (err.message) {
+        errorMsg = err.message
+      }
+
       setError(`❌ ${errorMsg}`)
     } finally {
       setUploading(false)

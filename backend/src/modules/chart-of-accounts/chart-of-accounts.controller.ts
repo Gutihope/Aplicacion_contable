@@ -1,20 +1,27 @@
 import { Router, Request, Response } from 'express'
 import { prisma } from '../../db'
-import multer from 'multer'
+import multer, { Multer } from 'multer'
 
 const router = Router()
-const upload = multer({ storage: multer.memoryStorage() })
+const upload: Multer = multer({ storage: multer.memoryStorage() })
 
 // POST upload CSV (antes de las rutas dinámicas)
 router.post('/upload-csv', upload.single('file'), async (req: Request, res: Response) => {
+  console.log('📤 Upload request received')
+  console.log('📄 File:', req.file ? `${req.file.originalname} (${req.file.size} bytes)` : 'No file')
+
   try {
     if (!req.file) {
+      console.error('❌ No file in request')
       return res.status(400).json({ success: false, error: 'No file uploaded' })
     }
 
     const csvText = req.file.buffer.toString('utf-8')
     const lines = csvText.split('\n').filter(line => line.trim())
     const headers = lines[0].split(',').map(h => h.trim())
+
+    console.log(`📊 CSV parsed: ${lines.length} lines, ${headers.length} columns`)
+    console.log('📋 Headers:', headers)
 
     // Detectar nombres de columnas (flexible)
     const codigoCol = headers.find(h => h.toLowerCase().includes('código') || h.toLowerCase().includes('codigo'))
@@ -79,6 +86,8 @@ router.post('/upload-csv', upload.single('file'), async (req: Request, res: Resp
       }
     }
 
+    console.log(`✅ Upload successful: ${createdCount} created, ${updatedCount} updated`)
+
     res.json({
       success: true,
       message: `Carga completada: ${createdCount} creados, ${updatedCount} actualizados`,
@@ -91,6 +100,7 @@ router.post('/upload-csv', upload.single('file'), async (req: Request, res: Resp
     })
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error)
+    console.error('❌ Error in upload:', msg)
     res.status(500).json({ success: false, error: msg })
   }
 })
