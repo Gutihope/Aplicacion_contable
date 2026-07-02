@@ -1,4 +1,4 @@
-﻿import axios from "axios"
+import axios from "axios"
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5001/api/v1"
 
@@ -34,4 +34,5 @@ export const endpoints = {
   updatePaymentMethod: (id: number) => `/payment-methods/${id}`,
   deletePaymentMethod: (id: number) => `/payment-methods/${id}`,
   getPUC: "/chart-of-accounts",
+  deletePUC: "/chart-of-accounts",
 }

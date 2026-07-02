@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { api, endpoints } from "../services/api"
-import { Search, Upload } from "lucide-react"
+import { Search, Upload, ChevronDown, ChevronRight } from "lucide-react"
 
 interface PUC {
   codigo: string
@@ -17,7 +17,7 @@ export default function ChartOfAccounts() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
-  const [expandedLevels, setExpandedLevels] = useState<Set<string>>(new Set(["1", "2", "3"]))
+  const [expandedCodes, setExpandedCodes] = useState<Set<string>>(new Set())
   const [uploading, setUploading] = useState(false)
   const [showUploadForm, setShowUploadForm] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -36,6 +36,9 @@ export default function ChartOfAccounts() {
       const response = await api.get(endpoints.getPUC)
       setPucs(response.data.data)
       setError("")
+      // Expandir nivel 1 por defecto
+      const level1Codes = response.data.data.filter((p: PUC) => p.nivel === 1).map((p: PUC) => p.codigo)
+      setExpandedCodes(new Set(level1Codes))
     } catch (err: any) {
       setError(err.response?.data?.error || "Error al cargar el PUC")
     } finally {
@@ -58,25 +61,22 @@ export default function ChartOfAccounts() {
     }
   }
 
-  const toggleLevel = (code: string) => {
-    const newExpanded = new Set(expandedLevels)
+  const toggleExpand = (code: string) => {
+    const newExpanded = new Set(expandedCodes)
     if (newExpanded.has(code)) {
       newExpanded.delete(code)
     } else {
       newExpanded.add(code)
     }
-    setExpandedLevels(newExpanded)
+    setExpandedCodes(newExpanded)
   }
 
-  const getParentCode = (code: string, nivel: number) => {
-    if (nivel === 1) return null
-    return code.substring(0, code.length - 1)
-  }
-
-  const isExpanded = (code: string) => expandedLevels.has(code)
-
-  const getPUCsByLevel = (level: number) => {
-    return filteredPucs.filter((p) => p.nivel === level)
+  const getChildren = (parentCode: string): PUC[] => {
+    return filteredPucs.filter(puc => {
+      if (puc.nivel <= 1) return false
+      const parent = puc.codigo.substring(0, puc.codigo.length - 1)
+      return parent === parentCode
+    }).sort((a, b) => a.codigo.localeCompare(b.codigo))
   }
 
   const getNaturalezaLabel = (naturaleza: string) => {
@@ -85,10 +85,6 @@ export default function ChartOfAccounts() {
 
   const getNaturalezaColor = (naturaleza: string) => {
     return naturaleza === "D" ? "text-blue-600" : "text-red-600"
-  }
-
-  const getIndent = (nivel: number) => {
-    return `ml-${Math.min(nivel - 1, 5) * 4}`
   }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -150,6 +146,53 @@ export default function ChartOfAccounts() {
     } finally {
       setUploading(false)
     }
+  }
+
+  const renderPUCNode = (puc: PUC, depth: number = 0): React.ReactNode => {
+    const children = getChildren(puc.codigo)
+    const hasChildren = children.length > 0
+    const isExpanded = expandedCodes.has(puc.codigo)
+
+    return (
+      <div key={puc.codigo}>
+        <div
+          className="flex items-center gap-2 px-3 py-2 hover:bg-blue-50 border-b border-gray-100 transition-colors"
+          style={{ paddingLeft: `${depth * 20 + 12}px` }}
+        >
+          {hasChildren ? (
+            <button
+              onClick={() => toggleExpand(puc.codigo)}
+              className="flex-shrink-0 w-5 h-5 flex items-center justify-center text-gray-500 hover:text-gray-700"
+            >
+              {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            </button>
+          ) : (
+            <div className="flex-shrink-0 w-5" />
+          )}
+
+          <span className="font-mono font-bold text-gray-900 w-28 text-sm">{puc.codigo}</span>
+          <span className="flex-1 text-gray-700 text-sm">{puc.nombre}</span>
+          <span className={`text-xs font-semibold px-2 py-0.5 rounded whitespace-nowrap ${getNaturalezaColor(puc.naturaleza)}`}>
+            {getNaturalezaLabel(puc.naturaleza)}
+          </span>
+          <span className={`text-xs font-semibold px-2 py-0.5 rounded whitespace-nowrap ${
+            puc.movimiento ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
+          }`}>
+            {puc.movimiento ? "Movible" : "Fijo"}
+          </span>
+        </div>
+
+        {hasChildren && isExpanded && (
+          <div>
+            {children.map(child => renderPUCNode(child, depth + 1))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const getRootPUCs = () => {
+    return filteredPucs.filter(p => p.nivel === 1).sort((a, b) => a.codigo.localeCompare(b.codigo))
   }
 
   return (
@@ -216,16 +259,18 @@ export default function ChartOfAccounts() {
         )}
       </div>
 
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <Search className="h-5 w-5 text-gray-400" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Buscar por código o nombre..."
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-          />
+      <div className="bg-white rounded-lg shadow">
+        <div className="p-4 border-b border-gray-200">
+          <div className="flex items-center gap-3">
+            <Search className="h-5 w-5 text-gray-400" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Buscar por código o nombre..."
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
         </div>
 
         {loading ? (
@@ -236,69 +281,27 @@ export default function ChartOfAccounts() {
             </div>
           </div>
         ) : pucs.length === 0 ? (
-          <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded text-sm">
+          <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded text-sm m-4">
             📁 No hay cuentas PUC cargadas. Carga un archivo CSV para empezar.
           </div>
         ) : (
-          <div className="bg-gray-50 rounded-lg overflow-y-auto max-h-96">
-            <div className="min-w-full">
-              {filteredPucs.map((puc, index) => (
-                <div
-                  key={puc.codigo}
-                  className={`border-b border-gray-200 ${index % 2 === 0 ? "bg-white" : "bg-gray-50"}`}
-                >
-                  <div
-                    className={`px-4 py-3 flex items-center gap-3 hover:bg-blue-50 transition-colors`}
-                    style={{ paddingLeft: `${(puc.nivel - 1) * 24 + 16}px` }}
-                  >
-                    <span className={`font-mono font-semibold text-gray-900 w-20`}>
-                      {puc.codigo}
-                    </span>
-                    <span className="flex-1 text-gray-700">{puc.nombre}</span>
-                    <span
-                      className={`text-xs font-semibold px-2 py-1 rounded ${getNaturalezaColor(
-                        puc.naturaleza
-                      )}`}
-                    >
-                      {getNaturalezaLabel(puc.naturaleza)}
-                    </span>
-                    <span className="text-xs text-gray-500 bg-gray-200 px-2 py-1 rounded">
-                      N{puc.nivel}
-                    </span>
-                    <span className={`text-xs font-semibold px-2 py-1 rounded ${
-                      puc.movimiento ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
-                    }`}>
-                      {puc.movimiento ? "Mov." : "No Mov."}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
+          <div className="overflow-y-auto max-h-96">
+            {getRootPUCs().map(puc => renderPUCNode(puc))}
           </div>
         )}
 
-        <div className="mt-6 grid grid-cols-3 gap-4 text-sm">
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded bg-blue-600"></span>
-            <span>Débito</span>
+        <div className="border-t border-gray-200 p-4 text-sm text-gray-600">
+          <div className="grid grid-cols-2 gap-4 mb-3">
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded bg-blue-600"></span>
+              <span>Débito</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded bg-red-600"></span>
+              <span>Crédito</span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded bg-red-600"></span>
-            <span>Crédito</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded bg-green-500"></span>
-            <span>Movimiento Permitido</span>
-          </div>
-        </div>
-
-        <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-          <p className="text-sm text-blue-900">
-            Total de cuentas: <span className="font-semibold">{filteredPucs.length}</span>
-          </p>
-          <p className="text-sm text-blue-900 mt-1">
-            Filtrando: <span className="font-semibold">{searchTerm || "todas"}</span>
-          </p>
+          <p><strong>Total:</strong> {filteredPucs.length} cuentas</p>
         </div>
       </div>
     </div>

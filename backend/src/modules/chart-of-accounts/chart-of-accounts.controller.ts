@@ -18,9 +18,13 @@ router.post('/upload-csv', upload.single('file'), async (req: Request, res: Resp
 
     const csvText = req.file.buffer.toString('utf-8')
     const lines = csvText.split('\n').filter(line => line.trim())
-    const headers = lines[0].split(',').map(h => h.trim())
+    
+    // Detectar separador automáticamente (coma o punto y coma)
+    const firstLine = lines[0]
+    const separator = firstLine.includes(';') ? ';' : ','
+    const headers = firstLine.split(separator).map(h => h.trim().replace(/^"|"$/g, ''))
 
-    console.log(`📊 CSV parsed: ${lines.length} lines, ${headers.length} columns`)
+    console.log(`📊 CSV parsed: ${lines.length} lines, ${headers.length} columns (separator: '${separator}')`)
     console.log('📋 Headers:', headers)
 
     // Detectar nombres de columnas (flexible)
@@ -45,7 +49,7 @@ router.post('/upload-csv', upload.single('file'), async (req: Request, res: Resp
 
     for (const line of validRows) {
       try {
-        const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''))
+        const values = line.split(separator).map(v => v.trim().replace(/^"|"$/g, ''))
         const row: Record<string, string> = {}
 
         headers.forEach((header, index) => {
@@ -135,6 +139,32 @@ router.get('/:codigo', async (req: Request, res: Response) => {
     res.json({ success: true, data: puc })
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error)
+    res.status(500).json({ success: false, error: msg })
+  }
+})
+
+// DELETE all PUC accounts
+router.delete('/', async (req: Request, res: Response) => {
+  console.log('🗑️ Delete all PUC accounts request received')
+  try {
+    const result = await prisma.pUC.deleteMany()
+    console.log(`✅ Deleted ${result.count} PUC accounts`)
+    res.json({
+      success: true,
+      message: `Se eliminaron ${result.count} cuentas del Plan de Cuentas.`,
+    })
+  } catch (error: any) {
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error('❌ Error deleting PUC:', msg)
+    
+    // Check if it's a foreign key constraint violation
+    if (error.code === 'P2003') {
+      return res.status(400).json({
+        success: false,
+        error: 'No se puede eliminar el Plan de Cuentas porque tiene transacciones, métodos de pago o inversiones vinculados.',
+      })
+    }
+    
     res.status(500).json({ success: false, error: msg })
   }
 })
