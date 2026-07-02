@@ -1,0 +1,234 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// MÓDULO CORE: PUC Y TERCEROS
+// ==========================================
+
+model Tercero {
+  id_tercero              Int                   @id @default(autoincrement())
+  nit_o_documento         String                @unique
+  nombre_completo         String
+  pais                    String?
+  ciudad                  String?
+  direccion               String?
+  tipo_servicio_presta    String?
+  tipo_persona            String?
+
+  // Relaciones
+  asiento_detalles        AsientoDetalle[]
+  metodos_pago_cuentas    MetodoPagoCuenta[]
+  productos_inversion     ProductoInversion[]
+  tarjetas_credito        TarjetaCredito[]
+  tarjeta_compras         TarjetaCompra[]
+
+  @@map("terceros")
+}
+
+model PUC {
+  codigo                  String                @id
+  nombre                  String
+  nivel                   Int
+  naturaleza              String                // 'D' (Débito) o 'C' (Crédito)
+  movimiento              Boolean               // Puede tener movimientos
+
+  // Relaciones
+  asiento_detalles        AsientoDetalle[]
+  metodos_pago_cuentas    MetodoPagoCuenta[]
+  productos_inversion_inv ProductoInversion[]   @relation("InversionCuenta")
+  productos_inversion_ing ProductoInversion[]   @relation("IngresoCuenta")
+  gastos_recurrentes      GastoRecurrenteConfig[]
+
+  @@map("puc")
+}
+
+// ==========================================
+// MÓDULO DE PARAMETRIZACIÓN AUTOMÁTICA
+// ==========================================
+
+model MetodoPagoCuenta {
+  id_metodo               Int                   @id @default(autoincrement())
+  nombre_comercial        String                // 'Efectivo', 'Nequi', etc.
+  categoria_pago          String                // 'CONTADO' o 'CREDITO'
+  tipo_origen             String                // 'EFECTIVO', 'BANCO', 'TARJETA_CREDITO', 'PROVEEDOR'
+  puc_codigo              String?
+  banco_tercero_id        Int?
+
+  // Relaciones
+  puc                     PUC?                  @relation(fields: [puc_codigo], references: [codigo], onDelete: SetNull)
+  banco_tercero           Tercero?              @relation(fields: [banco_tercero_id], references: [id_tercero], onDelete: SetNull)
+
+  @@map("metodos_pago_cuentas")
+}
+
+model ProductoInversion {
+  id_inversion            Int                   @id @default(autoincrement())
+  nombre_producto         String                // 'CDT Bancolombia'
+  id_tercero              Int
+  puc_cuenta_inversion    String                // Cuenta del activo
+  puc_cuenta_ingreso      String                // Cuenta de ingresos (clase 4)
+  monto_inicial           Decimal               @db.Decimal(12, 2)
+  fecha_apertura          DateTime              @db.Date
+  estado                  String                @default("ACTIVO") // 'ACTIVO', 'LIQUIDADO'
+
+  // Relaciones
+  tercero                 Tercero               @relation(fields: [id_tercero], references: [id_tercero], onDelete: Restrict)
+  puc_inversion           PUC                   @relation("InversionCuenta", fields: [puc_cuenta_inversion], references: [codigo], onDelete: Restrict)
+  puc_ingreso             PUC                   @relation("IngresoCuenta", fields: [puc_cuenta_ingreso], references: [codigo], onDelete: Restrict)
+
+  @@map("productos_inversion")
+}
+
+model TarjetaCredito {
+  id_tarjeta              Int                   @id @default(autoincrement())
+  nombre_tarjeta          String
+  id_banco_tercero        Int
+  puc_cuenta_pasivo       String                // Cuenta del pasivo (hijo de 2101)
+
+  // Relaciones
+  banco_tercero           Tercero               @relation(fields: [id_banco_tercero], references: [id_tercero], onDelete: Restrict)
+  tarjeta_compras         TarjetaCompra[]
+
+  @@map("tarjetas_credito")
+}
+
+// ==========================================
+// MÓDULO INVENTARIO DE CONSUMIBLES
+// ==========================================
+
+model InventarioProducto {
+  id_producto             Int                   @id @default(autoincrement())
+  nombre                  String
+  unidad_medida           String?
+  stock_actual            Decimal               @default(0) @db.Decimal(10, 2)
+  stock_minimo            Decimal               @default(0) @db.Decimal(10, 2)
+
+  // Relaciones
+  factura_detalles        FacturaDetalle[]
+  inventario_movimientos  InventarioMovimiento[]
+
+  @@map("inventario_productos")
+}
+
+// ==========================================
+// MÓDULO DE TRANSACCIONES Y DOCUMENTOS (DRIVE)
+// ==========================================
+
+model AsientoContable {
+  id_asiento              Int                   @id @default(autoincrement())
+  fecha                   DateTime              @db.Date
+  descripcion             String
+  comprobante_tipo        String                // 'Egreso', 'Ingreso', 'Nota Contable'
+  google_drive_file_id    String?               // ID único del PDF en Google Drive
+  google_drive_webview_link String?             // Enlace para previsualizar
+
+  // Relaciones
+  asiento_detalles        AsientoDetalle[]
+  tarjeta_compras         TarjetaCompra[]
+  factura_detalles        FacturaDetalle[]
+
+  @@map("asientos_contables")
+  @@index([fecha])
+}
+
+model AsientoDetalle {
+  id_detalle              Int                   @id @default(autoincrement())
+  asiento_id              Int
+  puc_codigo              String
+  id_tercero              Int?
+  debito                  Decimal               @default(0) @db.Decimal(12, 2)
+  credito                 Decimal               @default(0) @db.Decimal(12, 2)
+
+  // Relaciones
+  asiento                 AsientoContable       @relation(fields: [asiento_id], references: [id_asiento], onDelete: Cascade)
+  puc                     PUC                   @relation(fields: [puc_codigo], references: [codigo], onDelete: Restrict)
+  tercero                 Tercero?              @relation(fields: [id_tercero], references: [id_tercero], onDelete: SetNull)
+
+  @@map("asiento_detalles")
+  @@unique([asiento_id, puc_codigo, id_tercero])
+  @@index([asiento_id])
+}
+
+// Trazabilidad de compras con TC diferidas
+model TarjetaCompra {
+  id_compra_tc            Int                   @id @default(autoincrement())
+  id_tarjeta              Int
+  asiento_id              Int
+  establecimiento_tercero_id Int
+  monto_total_original    Decimal               @db.Decimal(12, 2)
+  cuotas_totales          Int
+  cuotas_restantes        Int
+  saldo_capital_actual    Decimal               @db.Decimal(12, 2)
+  estado                  String                @default("VIGENTE") // 'VIGENTE', 'CANCELADA'
+
+  // Relaciones
+  tarjeta                 TarjetaCredito        @relation(fields: [id_tarjeta], references: [id_tarjeta], onDelete: Restrict)
+  asiento                 AsientoContable       @relation(fields: [asiento_id], references: [id_asiento], onDelete: Restrict)
+  establecimiento         Tercero               @relation(fields: [establecimiento_tercero_id], references: [id_tercero], onDelete: Restrict)
+
+  @@map("tarjeta_compras")
+}
+
+// Control de compras e inventario detallado
+model FacturaDetalle {
+  id_factura_detalle      Int                   @id @default(autoincrement())
+  asiento_id              Int
+  id_producto             Int?
+  cantidad                Decimal               @db.Decimal(10, 2)
+  precio_unitario         Decimal               @db.Decimal(12, 2)
+  porcentaje_iva          Decimal               @default(0) @db.Decimal(5, 2)
+  monto_iva               Decimal               @default(0) @db.Decimal(12, 2)
+  subtotal                Decimal               @db.Decimal(12, 2)
+
+  // Relaciones
+  asiento                 AsientoContable       @relation(fields: [asiento_id], references: [id_asiento], onDelete: Cascade)
+  producto                InventarioProducto?  @relation(fields: [id_producto], references: [id_producto], onDelete: SetNull)
+  inventario_movimientos  InventarioMovimiento[]
+
+  @@map("factura_detalles")
+  @@index([asiento_id])
+}
+
+// Historial de entradas/salidas de despensa
+model InventarioMovimiento {
+  id_mov_inventario       Int                   @id @default(autoincrement())
+  id_producto             Int
+  tipo_movimiento         String                // 'ENTRADA' o 'SALIDA'
+  cantidad                Decimal               @db.Decimal(10, 2)
+  fecha                   DateTime              @default(now())
+  factura_detalle_id      Int?
+
+  // Relaciones
+  producto                InventarioProducto   @relation(fields: [id_producto], references: [id_producto], onDelete: Restrict)
+  factura_detalle         FacturaDetalle?      @relation(fields: [factura_detalle_id], references: [id_factura_detalle], onDelete: SetNull)
+
+  @@map("inventario_movimientos")
+  @@index([id_producto])
+}
+
+// ==========================================
+// MÓDULO FORECAST Y RECURRENTES
+// ==========================================
+
+model GastoRecurrenteConfig {
+  id_recurrente           Int                   @id @default(autoincrement())
+  puc_codigo              String
+  descripcion             String
+  monto_estimado          Decimal               @db.Decimal(12, 2)
+  mes_inicio              Int
+  mes_fin                 Int
+
+  // Relaciones
+  puc                     PUC                   @relation(fields: [puc_codigo], references: [codigo], onDelete: Restrict)
+
+  @@map("gastos_recurrentes_config")
+}
