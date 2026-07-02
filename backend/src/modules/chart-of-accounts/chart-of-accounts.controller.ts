@@ -1,9 +1,9 @@
 import { Router, Request, Response } from 'express'
 import { prisma } from '../../db'
-import multer, { Multer } from 'multer'
+import multer from 'multer'
 
 const router = Router()
-const upload: Multer = multer({ storage: multer.memoryStorage() })
+const upload = multer({ storage: multer.memoryStorage() })
 
 // POST upload CSV (antes de las rutas dinámicas)
 router.post('/upload-csv', upload.single('file'), async (req: Request, res: Response) => {
