@@ -111,7 +111,10 @@ export default function ChartOfAccounts() {
           `✅ ${response.data.data.createdCount} creados, ${response.data.data.updatedCount} actualizados`
         )
         setShowUploadForm(false)
-        setTimeout(() => fetchPucs(), 500)
+        setTimeout(() => {
+          fetchPucs()
+          setSuccess("")
+        }, 1000)
       }
     } catch (err: any) {
       setError(err.response?.data?.error || "Error al cargar el archivo")
@@ -120,22 +123,17 @@ export default function ChartOfAccounts() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Cargando Plan de Cuentas...</p>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-6">
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
           {error}
+        </div>
+      )}
+
+      {success && (
+        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded">
+          {success}
         </div>
       )}
 
@@ -184,41 +182,54 @@ export default function ChartOfAccounts() {
           />
         </div>
 
-        <div className="bg-gray-50 rounded-lg overflow-y-auto max-h-96">
-          <div className="min-w-full">
-            {pucs.map((puc, index) => (
-              <div
-                key={puc.codigo}
-                className={`border-b border-gray-200 ${index % 2 === 0 ? "bg-white" : "bg-gray-50"}`}
-              >
-                <div
-                  className={`px-4 py-3 flex items-center gap-3 hover:bg-blue-50 transition-colors`}
-                  style={{ paddingLeft: `${(puc.nivel - 1) * 24 + 16}px` }}
-                >
-                  <span className={`font-mono font-semibold text-gray-900 w-20`}>
-                    {puc.codigo}
-                  </span>
-                  <span className="flex-1 text-gray-700">{puc.nombre}</span>
-                  <span
-                    className={`text-xs font-semibold px-2 py-1 rounded ${getNaturalezaColor(
-                      puc.naturaleza
-                    )}`}
-                  >
-                    {getNaturalezaLabel(puc.naturaleza)}
-                  </span>
-                  <span className="text-xs text-gray-500 bg-gray-200 px-2 py-1 rounded">
-                    N{puc.nivel}
-                  </span>
-                  <span className={`text-xs font-semibold px-2 py-1 rounded ${
-                    puc.movimiento ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
-                  }`}>
-                    {puc.movimiento ? "Mov." : "No Mov."}
-                  </span>
-                </div>
-              </div>
-            ))}
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+              <p className="text-gray-600 text-sm">Cargando Plan de Cuentas...</p>
+            </div>
           </div>
-        </div>
+        ) : pucs.length === 0 ? (
+          <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded text-sm">
+            📁 No hay cuentas PUC cargadas. Carga un archivo CSV para empezar.
+          </div>
+        ) : (
+          <div className="bg-gray-50 rounded-lg overflow-y-auto max-h-96">
+            <div className="min-w-full">
+              {filteredPucs.map((puc, index) => (
+                <div
+                  key={puc.codigo}
+                  className={`border-b border-gray-200 ${index % 2 === 0 ? "bg-white" : "bg-gray-50"}`}
+                >
+                  <div
+                    className={`px-4 py-3 flex items-center gap-3 hover:bg-blue-50 transition-colors`}
+                    style={{ paddingLeft: `${(puc.nivel - 1) * 24 + 16}px` }}
+                  >
+                    <span className={`font-mono font-semibold text-gray-900 w-20`}>
+                      {puc.codigo}
+                    </span>
+                    <span className="flex-1 text-gray-700">{puc.nombre}</span>
+                    <span
+                      className={`text-xs font-semibold px-2 py-1 rounded ${getNaturalezaColor(
+                        puc.naturaleza
+                      )}`}
+                    >
+                      {getNaturalezaLabel(puc.naturaleza)}
+                    </span>
+                    <span className="text-xs text-gray-500 bg-gray-200 px-2 py-1 rounded">
+                      N{puc.nivel}
+                    </span>
+                    <span className={`text-xs font-semibold px-2 py-1 rounded ${
+                      puc.movimiento ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
+                    }`}>
+                      {puc.movimiento ? "Mov." : "No Mov."}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="mt-6 grid grid-cols-3 gap-4 text-sm">
           <div className="flex items-center gap-2">
