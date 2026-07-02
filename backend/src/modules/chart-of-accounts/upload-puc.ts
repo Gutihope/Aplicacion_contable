@@ -1,45 +1,35 @@
 import { Router, Request, Response } from 'express'
-import { prisma } from '../../db'
 import multer from 'multer'
+import { prisma } from '../../db'
+import { Readable } from 'stream'
 
 const router = Router()
 const upload = multer({ storage: multer.memoryStorage() })
 
-// GET all PUC accounts
-router.get('/', async (req: Request, res: Response) => {
-  try {
-    const pucs = await prisma.pUC.findMany({
-      orderBy: [{ nivel: 'asc' }, { codigo: 'asc' }],
+function parseCSV(csvText: string) {
+  const lines = csvText.split('\n').filter(line => line.trim())
+  const headers = lines[0].split(',').map(h => h.trim())
+
+  const headerMap: Record<string, number> = {}
+  headers.forEach((header, index) => {
+    headerMap[header.toLowerCase()] = index
+  })
+
+  const data = []
+  for (let i = 1; i < lines.length; i++) {
+    const values = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''))
+    const row: any = {}
+
+    headers.forEach((header, index) => {
+      row[header] = values[index] || ''
     })
 
-    res.json({ success: true, data: pucs })
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error)
-    res.status(500).json({ success: false, error: msg })
+    data.push(row)
   }
-})
 
-// GET PUC by code
-router.get('/:codigo', async (req: Request, res: Response) => {
-  try {
-    const { codigo } = req.params
+  return { headers, data }
+}
 
-    const puc = await prisma.pUC.findUnique({
-      where: { codigo },
-    })
-
-    if (!puc) {
-      return res.status(404).json({ success: false, error: 'Cuenta PUC no encontrada' })
-    }
-
-    res.json({ success: true, data: puc })
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error)
-    res.status(500).json({ success: false, error: msg })
-  }
-})
-
-// POST upload CSV
 router.post('/upload-csv', upload.single('file'), async (req: Request, res: Response) => {
   try {
     if (!req.file) {
@@ -47,10 +37,9 @@ router.post('/upload-csv', upload.single('file'), async (req: Request, res: Resp
     }
 
     const csvText = req.file.buffer.toString('utf-8')
-    const lines = csvText.split('\n').filter(line => line.trim())
-    const headers = lines[0].split(',').map(h => h.trim())
+    const { headers, data } = parseCSV(csvText)
 
-    // Detectar nombres de columnas (flexible)
+    // Detectar nombres de columnas
     const codigoCol = headers.find(h => h.toLowerCase().includes('código') || h.toLowerCase().includes('codigo'))
     const nombreCol = headers.find(h => h.toLowerCase().includes('nombre'))
     const nivelCol = headers.find(h => h.toLowerCase().includes('nivel'))
@@ -60,36 +49,22 @@ router.post('/upload-csv', upload.single('file'), async (req: Request, res: Resp
     if (!codigoCol || !nombreCol || !nivelCol || !naturalezaCol || !movimientoCol) {
       return res.status(400).json({
         success: false,
-        error: 'CSV must contain columns: Código, Nombre, Nivel, Naturaleza, Movimiento',
-        foundColumns: headers,
+        error: 'CSV must contain: Código, Nombre, Nivel, Naturaleza, Movimiento',
       })
     }
 
-    const validRows = lines.slice(1).filter(line => line.trim())
+    const validRows = data.filter(row => row[codigoCol] && row[nombreCol])
     let createdCount = 0
     let updatedCount = 0
     const errors: string[] = []
 
-    for (const line of validRows) {
+    for (const row of validRows) {
       try {
-        const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''))
-        const row: Record<string, string> = {}
-
-        headers.forEach((header, index) => {
-          row[header] = values[index] || ''
-        })
-
-        const codigo = row[codigoCol]?.toString().trim()
-        const nombre = row[nombreCol]?.toString().trim()
-
-        if (!codigo || !nombre) continue
-
+        const codigo = row[codigoCol].toString()
+        const nombre = row[nombreCol].toString()
         const nivel = parseInt(row[nivelCol]) || 1
-        const naturaleza = row[naturalezaCol]?.toString().toUpperCase().charAt(0) || 'D'
-        const movimiento =
-          row[movimientoCol]?.toString().toLowerCase().startsWith('s') ||
-          row[movimientoCol]?.toString() === '1' ||
-          row[movimientoCol]?.toString().toLowerCase() === 'true'
+        const naturaleza = row[naturalezaCol].toString().toUpperCase().charAt(0) // D o C
+        const movimiento = row[movimientoCol].toString().toLowerCase().startsWith('s') || row[movimientoCol].toString() === '1'
 
         const existing = await prisma.pUC.findUnique({
           where: { codigo },
@@ -109,7 +84,7 @@ router.post('/upload-csv', upload.single('file'), async (req: Request, res: Resp
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
-        errors.push(msg)
+        errors.push(`Row ${row[codigoCol]}: ${msg}`)
       }
     }
 
@@ -120,7 +95,7 @@ router.post('/upload-csv', upload.single('file'), async (req: Request, res: Resp
         totalRows: validRows.length,
         createdCount,
         updatedCount,
-        errors: errors.slice(0, 10), // Limitar a 10 errores
+        errors,
       },
     })
   } catch (error) {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { api, endpoints } from "../services/api"
-import { Search } from "lucide-react"
+import { Search, Upload } from "lucide-react"
 
 interface PUC {
   codigo: string
@@ -15,8 +15,11 @@ export default function ChartOfAccounts() {
   const [filteredPucs, setFilteredPucs] = useState<PUC[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [success, setSuccess] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
   const [expandedLevels, setExpandedLevels] = useState<Set<string>>(new Set(["1", "2", "3"]))
+  const [uploading, setUploading] = useState(false)
+  const [showUploadForm, setShowUploadForm] = useState(false)
 
   useEffect(() => {
     fetchPucs()
@@ -87,6 +90,36 @@ export default function ChartOfAccounts() {
     return `ml-${Math.min(nivel - 1, 5) * 4}`
   }
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploading(true)
+    setError("")
+    setSuccess("")
+
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+
+      const response = await api.post("/chart-of-accounts/upload-csv", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      })
+
+      if (response.data.success) {
+        setSuccess(
+          `✅ ${response.data.data.createdCount} creados, ${response.data.data.updatedCount} actualizados`
+        )
+        setShowUploadForm(false)
+        setTimeout(() => fetchPucs(), 500)
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.error || "Error al cargar el archivo")
+    } finally {
+      setUploading(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -105,6 +138,39 @@ export default function ChartOfAccounts() {
           {error}
         </div>
       )}
+
+      <div className="flex justify-end mb-4">
+        {!showUploadForm ? (
+          <button
+            onClick={() => setShowUploadForm(true)}
+            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+          >
+            <Upload className="h-4 w-4" />
+            Cargar CSV del PUC
+          </button>
+        ) : (
+          <div className="bg-white rounded-lg shadow p-4 w-full max-w-md">
+            <h3 className="font-semibold mb-3">Cargar archivo CSV</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              El archivo debe contener las columnas: <strong>Código, Nombre, Nivel, Naturaleza, Movimiento</strong>
+            </p>
+            <input
+              type="file"
+              accept=".csv"
+              onChange={handleFileUpload}
+              disabled={uploading}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+            />
+            <button
+              type="button"
+              onClick={() => setShowUploadForm(false)}
+              className="mt-3 w-full bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400"
+            >
+              Cancelar
+            </button>
+          </div>
+        )}
+      </div>
 
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex items-center gap-3 mb-6">
