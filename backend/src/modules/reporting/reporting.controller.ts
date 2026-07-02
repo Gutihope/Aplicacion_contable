@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { PrismaClient, Decimal } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+import { Decimal } from '@prisma/client/runtime/library';
 import { generateFinancialReports } from '../../services/AccountingService';
 
 const router = Router();
@@ -233,7 +234,7 @@ router.get('/forecast', async (req: Request, res: Response, next: NextFunction) 
           },
         },
       },
-      include: { puc: true },
+      include: { puc: true, asiento: true },
     });
 
     // Calcular gastos reales por mes

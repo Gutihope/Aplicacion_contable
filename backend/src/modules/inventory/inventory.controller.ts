@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { PrismaClient, Decimal } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+import { Decimal } from '@prisma/client/runtime/library';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -24,9 +25,9 @@ router.get('/products', async (req: Request, res: Response, next: NextFunction) 
     // Marcar productos en alerta
     const productosConAlerta = productos.map((p) => ({
       ...p,
-      en_alerta: p.stock_actual <= p.stock_minimo,
+      en_alerta: Number(p.stock_actual) <= Number(p.stock_minimo),
       porcentaje_stock:
-        p.stock_minimo > 0
+        Number(p.stock_minimo) > 0
           ? Math.round((Number(p.stock_actual) / Number(p.stock_minimo)) * 100)
           : 100,
     }));
@@ -50,15 +51,6 @@ router.get('/products', async (req: Request, res: Response, next: NextFunction) 
  */
 router.get('/alerts', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const alertas = await prisma.inventarioProducto.findMany({
-      where: {
-        stock_actual: {
-          lte: prisma.inventarioProducto.fields.stock_minimo,
-        },
-      },
-    });
-
-    // Alternativa: hacer la comparación en JavaScript
     const productosConAlerta = await prisma.inventarioProducto.findMany();
     const productosEnAlerta = productosConAlerta.filter(
       (p) => Number(p.stock_actual) <= Number(p.stock_minimo)

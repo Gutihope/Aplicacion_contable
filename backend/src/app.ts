@@ -29,7 +29,22 @@ app.use(helmet());
 // CORS
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    origin: (origin, callback) => {
+      // Permitir peticiones sin origen (como curl o herramientas de testing)
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+      
+      const isLocalhost = /^http:\/\/(localhost|127\.0\.0\.1|\[::1\]):\d+$/.test(origin);
+      const envOrigin = process.env.CORS_ORIGIN;
+      
+      if (isLocalhost || (envOrigin && origin === envOrigin)) {
+        callback(null, true);
+      } else {
+        callback(null, false);
+      }
+    },
     credentials: true,
   })
 );

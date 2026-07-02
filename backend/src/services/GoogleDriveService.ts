@@ -44,8 +44,9 @@ export class GoogleDriveService {
 
       return result;
     } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
       console.error('❌ Error al subir archivo a Google Drive:', error);
-      throw new Error(`Google Drive upload failed: ${error.message}`);
+      throw new Error(`Google Drive upload failed: ${msg}`);
     }
   }
 

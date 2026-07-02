@@ -1,0 +1,17 @@
+Código,Nombre,Nivel,Naturaleza,Movimiento
+110101,Caja,5,D,Sí
+110105,Bancos,5,D,Sí
+110110,Banco Bancolombia,6,D,Sí
+110115,Banco Davivienda,6,D,Sí
+110120,Nequi,6,D,Sí
+140505,Inventario Consumibles,5,D,Sí
+140510,Productos de Almacén,6,D,Sí
+210101,Cuentas por Pagar,4,C,Sí
+220505,Proveedores,5,C,Sí
+240801,IVA por Pagar,5,C,Sí
+310101,Capital,3,C,No
+410501,Ingresos por Servicios,5,C,Sí
+410502,Ingresos por Inversiones,5,C,Sí
+510505,Gastos Generales,5,D,Sí
+510510,Gasto de Mercancía,6,D,Sí
+530535,Gastos Financieros,5,D,Sí

@@ -1,4 +1,5 @@
-import { PrismaClient, Decimal } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+import { Decimal } from '@prisma/client/runtime/library';
 
 const prisma = new PrismaClient();
 
@@ -371,7 +372,7 @@ export const generateFinancialReports = async (
   // Calcular saldos por naturaleza
   const balances: Record<string, { cuenta: string; saldo: number }> = {};
   for (const [puc, saldo] of Object.entries(byPUC)) {
-    const cuenta = await prisma.puc.findUnique({ where: { codigo: puc } });
+    const cuenta = await prisma.pUC.findUnique({ where: { codigo: puc } });
     if (!cuenta) continue;
 
     const valor = cuenta.naturaleza === 'D'

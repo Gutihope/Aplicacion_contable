@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { PrismaClient, Decimal } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+import { Decimal } from '@prisma/client/runtime/library';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -174,7 +175,7 @@ router.post(
         });
 
         // Actualizar compra: restar una cuota y actualizar saldo
-        const cuotaPagada = compra.saldo_capital_actual / compra.cuotas_restantes;
+        const cuotaPagada = Number(compra.saldo_capital_actual) / compra.cuotas_restantes;
         await prisma.tarjetaCompra.update({
           where: { id_compra_tc: compra_interes.id_compra_tc },
           data: {
