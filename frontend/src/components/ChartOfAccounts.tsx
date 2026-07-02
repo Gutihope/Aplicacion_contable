@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { api, endpoints } from "../services/api"
-import { Search, Upload, ChevronDown, ChevronRight } from "lucide-react"
+import { Search, Upload } from "lucide-react"
 
 interface PUC {
   codigo: string
@@ -12,11 +12,11 @@ interface PUC {
 
 export default function ChartOfAccounts() {
   const [pucs, setPucs] = useState<PUC[]>([])
+  const [filteredPucs, setFilteredPucs] = useState<PUC[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
-  const [expandedCodes, setExpandedCodes] = useState<Set<string>>(new Set())
   const [uploading, setUploading] = useState(false)
   const [showUploadForm, setShowUploadForm] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -25,14 +25,15 @@ export default function ChartOfAccounts() {
     fetchPucs()
   }, [])
 
+  useEffect(() => {
+    filterPucs()
+  }, [searchTerm, pucs])
+
   const fetchPucs = async () => {
     setLoading(true)
     try {
       const response = await api.get(endpoints.getPUC)
-      const allPucs = response.data.data as PUC[]
-      setPucs(allPucs)
-      // Expandir TODOS los códigos por defecto para ver la jerarquía completa
-      setExpandedCodes(new Set(allPucs.map(p => p.codigo)))
+      setPucs(response.data.data)
       setError("")
     } catch (err: any) {
       setError(err.response?.data?.error || "Error al cargar el PUC")
@@ -41,22 +42,19 @@ export default function ChartOfAccounts() {
     }
   }
 
-  const toggleExpand = (code: string) => {
-    const newExpanded = new Set(expandedCodes)
-    if (newExpanded.has(code)) {
-      newExpanded.delete(code)
+  const filterPucs = () => {
+    if (!searchTerm.trim()) {
+      setFilteredPucs(pucs)
     } else {
-      newExpanded.add(code)
+      const term = searchTerm.toLowerCase()
+      setFilteredPucs(
+        pucs.filter(
+          (p) =>
+            p.codigo.toLowerCase().includes(term) ||
+            p.nombre.toLowerCase().includes(term)
+        )
+      )
     }
-    setExpandedCodes(newExpanded)
-  }
-
-  const getChildren = (parentCode: string): PUC[] => {
-    return pucs.filter(puc => {
-      if (puc.nivel <= 1) return false
-      const parent = puc.codigo.substring(0, puc.codigo.length - 1)
-      return parent === parentCode
-    }).sort((a, b) => a.codigo.localeCompare(b.codigo))
   }
 
   const getNaturalezaLabel = (naturaleza: string) => {
@@ -82,12 +80,15 @@ export default function ChartOfAccounts() {
     setSuccess("")
 
     try {
+      console.log("Uploading file:", selectedFile.name)
       const formData = new FormData()
       formData.append("file", selectedFile)
 
       const response = await api.post("/chart-of-accounts/upload-csv", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       })
+
+      console.log("Response:", response.data)
 
       if (response.data.success) {
         setSuccess(
@@ -101,6 +102,7 @@ export default function ChartOfAccounts() {
         }, 1500)
       }
     } catch (err: any) {
+      console.error("Upload error:", err)
       let errorMsg = "Error al cargar el archivo"
       if (err.response?.status === 404) {
         errorMsg = "Endpoint no encontrado (404)"
@@ -115,64 +117,6 @@ export default function ChartOfAccounts() {
     } finally {
       setUploading(false)
     }
-  }
-
-  const filterPucs = (code: string): boolean => {
-    if (!searchTerm.trim()) return true
-    const term = searchTerm.toLowerCase()
-    const puc = pucs.find(p => p.codigo === code)
-    if (!puc) return false
-    return puc.codigo.toLowerCase().includes(term) || puc.nombre.toLowerCase().includes(term)
-  }
-
-  const renderNode = (puc: PUC, depth: number = 0): React.ReactNode => {
-    const children = getChildren(puc.codigo)
-    const hasChildren = children.length > 0
-    const isExpanded = expandedCodes.has(puc.codigo)
-    const isVisible = filterPucs(puc.codigo)
-
-    if (!isVisible) return null
-
-    return (
-      <div key={puc.codigo}>
-        <div
-          className="flex items-center gap-2 px-3 py-2 hover:bg-blue-50 border-b border-gray-100 transition-colors"
-          style={{ paddingLeft: `${depth * 20 + 12}px` }}
-        >
-          {hasChildren ? (
-            <button
-              onClick={() => toggleExpand(puc.codigo)}
-              className="flex-shrink-0 w-5 h-5 flex items-center justify-center text-gray-500 hover:text-gray-700"
-            >
-              {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-            </button>
-          ) : (
-            <div className="flex-shrink-0 w-5" />
-          )}
-
-          <span className="font-mono font-bold text-gray-900 w-28 text-sm">{puc.codigo}</span>
-          <span className="flex-1 text-gray-700 text-sm">{puc.nombre}</span>
-          <span className={`text-xs font-semibold px-2 py-0.5 rounded whitespace-nowrap ${getNaturalezaColor(puc.naturaleza)}`}>
-            {getNaturalezaLabel(puc.naturaleza)}
-          </span>
-          <span className={`text-xs font-semibold px-2 py-0.5 rounded whitespace-nowrap ${
-            puc.movimiento ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
-          }`}>
-            {puc.movimiento ? "✓" : "-"}
-          </span>
-        </div>
-
-        {hasChildren && isExpanded && (
-          <div>
-            {children.map(child => renderNode(child, depth + 1))}
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  const getRootPUCs = () => {
-    return pucs.filter(p => p.nivel === 1).sort((a, b) => a.codigo.localeCompare(b.codigo))
   }
 
   return (
@@ -202,7 +146,7 @@ export default function ChartOfAccounts() {
           <div className="bg-white rounded-lg shadow p-4 w-full max-w-md">
             <h3 className="font-semibold mb-3">Cargar archivo CSV</h3>
             <p className="text-sm text-gray-600 mb-4">
-              Columnas: <strong>Código, Nombre, Nivel, Naturaleza, Movimiento</strong>
+              El archivo debe contener: <strong>Código, Nombre, Nivel, Naturaleza, Movimiento</strong>
             </p>
             <input
               type="file"
@@ -252,7 +196,10 @@ export default function ChartOfAccounts() {
 
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+              <p className="text-gray-600 text-sm">Cargando...</p>
+            </div>
           </div>
         ) : pucs.length === 0 ? (
           <div className="bg-yellow-50 text-yellow-700 px-4 py-3 m-4 rounded">
@@ -260,12 +207,32 @@ export default function ChartOfAccounts() {
           </div>
         ) : (
           <div className="overflow-y-auto max-h-96">
-            {getRootPUCs().map(puc => renderNode(puc))}
+            <table className="w-full text-sm">
+              <tbody className="divide-y">
+                {filteredPucs.map((puc) => (
+                  <tr key={puc.codigo} className="hover:bg-blue-50">
+                    <td
+                      className="px-4 py-3 font-mono font-bold text-gray-900"
+                      style={{ paddingLeft: `${(puc.nivel - 1) * 24 + 16}px` }}
+                    >
+                      {puc.codigo}
+                    </td>
+                    <td className="px-4 py-3 text-gray-700">{puc.nombre}</td>
+                    <td className={`px-4 py-3 font-semibold ${getNaturalezaColor(puc.naturaleza)}`}>
+                      {getNaturalezaLabel(puc.naturaleza)}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">
+                      {puc.movimiento ? "Movible" : "Fijo"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
 
         <div className="border-t border-gray-200 p-4 text-sm text-gray-600">
-          <p><strong>Total:</strong> {pucs.length} cuentas</p>
+          <p><strong>Total:</strong> {filteredPucs.length} cuentas</p>
         </div>
       </div>
     </div>
