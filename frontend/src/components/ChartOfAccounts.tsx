@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { api, endpoints } from "../services/api"
-import { Search, Upload, ChevronDown, ChevronRight } from "lucide-react"
+import { Search, Upload } from "lucide-react"
 
 interface PUC {
   codigo: string
@@ -17,7 +17,6 @@ export default function ChartOfAccounts() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
-  const [expandedCodes, setExpandedCodes] = useState<Set<string>>(new Set())
   const [uploading, setUploading] = useState(false)
   const [showUploadForm, setShowUploadForm] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -36,9 +35,6 @@ export default function ChartOfAccounts() {
       const response = await api.get(endpoints.getPUC)
       setPucs(response.data.data)
       setError("")
-      // Expandir nivel 1 por defecto
-      const level1Codes = response.data.data.filter((p: PUC) => p.nivel === 1).map((p: PUC) => p.codigo)
-      setExpandedCodes(new Set(level1Codes))
     } catch (err: any) {
       setError(err.response?.data?.error || "Error al cargar el PUC")
     } finally {
@@ -49,54 +45,16 @@ export default function ChartOfAccounts() {
   const filterPucs = () => {
     if (!searchTerm.trim()) {
       setFilteredPucs(pucs)
-      // Expandir todos los nodos de nivel 1
-      const level1Codes = pucs.filter(p => p.nivel === 1).map(p => p.codigo)
-      setExpandedCodes(new Set(level1Codes))
     } else {
       const term = searchTerm.toLowerCase()
-      const matched = pucs.filter(
-        (p) =>
-          p.codigo.toLowerCase().includes(term) ||
-          p.nombre.toLowerCase().includes(term)
+      setFilteredPucs(
+        pucs.filter(
+          (p) =>
+            p.codigo.toLowerCase().includes(term) ||
+            p.nombre.toLowerCase().includes(term)
+        )
       )
-
-      // Agregar todos los padres de las cuentas que coinciden
-      const codes = new Set<string>()
-      matched.forEach(p => {
-        // Agregar esta cuenta
-        codes.add(p.codigo)
-        // Agregar todos sus padres
-        for (let i = p.codigo.length - 1; i > 0; i--) {
-          const parentCode = p.codigo.substring(0, i)
-          if (pucs.find(puc => puc.codigo === parentCode)) {
-            codes.add(parentCode)
-          }
-        }
-      })
-
-      setFilteredPucs(pucs.filter(p => codes.has(p.codigo)))
-
-      // Expandir automáticamente todas las cuentas durante búsqueda
-      setExpandedCodes(new Set(pucs.map(p => p.codigo)))
     }
-  }
-
-  const toggleExpand = (code: string) => {
-    const newExpanded = new Set(expandedCodes)
-    if (newExpanded.has(code)) {
-      newExpanded.delete(code)
-    } else {
-      newExpanded.add(code)
-    }
-    setExpandedCodes(newExpanded)
-  }
-
-  const getChildren = (parentCode: string): PUC[] => {
-    return filteredPucs.filter(puc => {
-      if (puc.nivel <= 1) return false
-      const parent = puc.codigo.substring(0, puc.codigo.length - 1)
-      return parent === parentCode
-    }).sort((a, b) => a.codigo.localeCompare(b.codigo))
   }
 
   const getNaturalezaLabel = (naturaleza: string) => {
@@ -145,74 +103,20 @@ export default function ChartOfAccounts() {
       }
     } catch (err: any) {
       console.error("Upload error:", err)
-      console.error("Response status:", err.response?.status)
-      console.error("Response data:", err.response?.data)
-
       let errorMsg = "Error al cargar el archivo"
-
       if (err.response?.status === 404) {
         errorMsg = "Endpoint no encontrado (404). Verifica que el backend esté actualizado."
       } else if (err.response?.data?.error) {
         errorMsg = typeof err.response.data.error === 'string'
           ? err.response.data.error
           : "Error en el servidor"
-      } else if (err.response?.data?.message) {
-        errorMsg = err.response.data.message
       } else if (err.message) {
         errorMsg = err.message
       }
-
       setError(`❌ ${errorMsg}`)
     } finally {
       setUploading(false)
     }
-  }
-
-  const renderPUCNode = (puc: PUC, depth: number = 0): React.ReactNode => {
-    const children = getChildren(puc.codigo)
-    const hasChildren = children.length > 0
-    const isExpanded = expandedCodes.has(puc.codigo)
-
-    return (
-      <div key={puc.codigo}>
-        <div
-          className="flex items-center gap-2 px-3 py-2 hover:bg-blue-50 border-b border-gray-100 transition-colors"
-          style={{ paddingLeft: `${depth * 20 + 12}px` }}
-        >
-          {hasChildren ? (
-            <button
-              onClick={() => toggleExpand(puc.codigo)}
-              className="flex-shrink-0 w-5 h-5 flex items-center justify-center text-gray-500 hover:text-gray-700"
-            >
-              {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-            </button>
-          ) : (
-            <div className="flex-shrink-0 w-5" />
-          )}
-
-          <span className="font-mono font-bold text-gray-900 w-28 text-sm">{puc.codigo}</span>
-          <span className="flex-1 text-gray-700 text-sm">{puc.nombre}</span>
-          <span className={`text-xs font-semibold px-2 py-0.5 rounded whitespace-nowrap ${getNaturalezaColor(puc.naturaleza)}`}>
-            {getNaturalezaLabel(puc.naturaleza)}
-          </span>
-          <span className={`text-xs font-semibold px-2 py-0.5 rounded whitespace-nowrap ${
-            puc.movimiento ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
-          }`}>
-            {puc.movimiento ? "Movible" : "Fijo"}
-          </span>
-        </div>
-
-        {hasChildren && isExpanded && (
-          <div>
-            {children.map(child => renderPUCNode(child, depth + 1))}
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  const getRootPUCs = () => {
-    return filteredPucs.filter(p => p.nivel === 1).sort((a, b) => a.codigo.localeCompare(b.codigo))
   }
 
   return (
@@ -306,7 +210,29 @@ export default function ChartOfAccounts() {
           </div>
         ) : (
           <div className="overflow-y-auto max-h-96">
-            {getRootPUCs().map(puc => renderPUCNode(puc))}
+            <table className="w-full">
+              <tbody className="divide-y">
+                {filteredPucs.map((puc) => (
+                  <tr key={puc.codigo} className="hover:bg-blue-50">
+                    <td
+                      className="px-4 py-3 font-mono font-semibold text-gray-900 text-sm"
+                      style={{ paddingLeft: `${(puc.nivel - 1) * 24 + 16}px` }}
+                    >
+                      {puc.codigo}
+                    </td>
+                    <td className="px-4 py-3 text-gray-700 text-sm">{puc.nombre}</td>
+                    <td className={`px-4 py-3 text-xs font-semibold ${getNaturalezaColor(puc.naturaleza)}`}>
+                      {getNaturalezaLabel(puc.naturaleza)}
+                    </td>
+                    <td className={`px-4 py-3 text-xs font-semibold px-2 py-1 rounded ${
+                      puc.movimiento ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
+                    }`}>
+                      {puc.movimiento ? "Movible" : "Fijo"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
 
