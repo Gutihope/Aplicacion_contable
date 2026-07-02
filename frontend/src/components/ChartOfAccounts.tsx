@@ -49,15 +49,35 @@ export default function ChartOfAccounts() {
   const filterPucs = () => {
     if (!searchTerm.trim()) {
       setFilteredPucs(pucs)
+      // Expandir todos los nodos de nivel 1
+      const level1Codes = pucs.filter(p => p.nivel === 1).map(p => p.codigo)
+      setExpandedCodes(new Set(level1Codes))
     } else {
       const term = searchTerm.toLowerCase()
-      setFilteredPucs(
-        pucs.filter(
-          (p) =>
-            p.codigo.toLowerCase().includes(term) ||
-            p.nombre.toLowerCase().includes(term)
-        )
+      const matched = pucs.filter(
+        (p) =>
+          p.codigo.toLowerCase().includes(term) ||
+          p.nombre.toLowerCase().includes(term)
       )
+
+      // Agregar todos los padres de las cuentas que coinciden
+      const codes = new Set<string>()
+      matched.forEach(p => {
+        // Agregar esta cuenta
+        codes.add(p.codigo)
+        // Agregar todos sus padres
+        for (let i = p.codigo.length - 1; i > 0; i--) {
+          const parentCode = p.codigo.substring(0, i)
+          if (pucs.find(puc => puc.codigo === parentCode)) {
+            codes.add(parentCode)
+          }
+        }
+      })
+
+      setFilteredPucs(pucs.filter(p => codes.has(p.codigo)))
+
+      // Expandir automáticamente todas las cuentas durante búsqueda
+      setExpandedCodes(new Set(pucs.map(p => p.codigo)))
     }
   }
 
