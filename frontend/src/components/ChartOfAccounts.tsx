@@ -20,6 +20,7 @@ export default function ChartOfAccounts() {
   const [expandedLevels, setExpandedLevels] = useState<Set<string>>(new Set(["1", "2", "3"]))
   const [uploading, setUploading] = useState(false)
   const [showUploadForm, setShowUploadForm] = useState(false)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
 
   useEffect(() => {
     fetchPucs()
@@ -90,9 +91,15 @@ export default function ChartOfAccounts() {
     return `ml-${Math.min(nivel - 1, 5) * 4}`
   }
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSelectedFile(e.target.files?.[0] || null)
+  }
+
+  const handleUpload = async () => {
+    if (!selectedFile) {
+      setError("Selecciona un archivo primero")
+      return
+    }
 
     setUploading(true)
     setError("")
@@ -100,7 +107,7 @@ export default function ChartOfAccounts() {
 
     try {
       const formData = new FormData()
-      formData.append("file", file)
+      formData.append("file", selectedFile)
 
       const response = await api.post("/chart-of-accounts/upload-csv", formData, {
         headers: { "Content-Type": "multipart/form-data" },
@@ -111,6 +118,7 @@ export default function ChartOfAccounts() {
           `✅ ${response.data.data.createdCount} creados, ${response.data.data.updatedCount} actualizados`
         )
         setShowUploadForm(false)
+        setSelectedFile(null)
         setTimeout(() => {
           fetchPucs()
           setSuccess("")
@@ -155,17 +163,34 @@ export default function ChartOfAccounts() {
             <input
               type="file"
               accept=".csv"
-              onChange={handleFileUpload}
+              onChange={handleFileSelect}
               disabled={uploading}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
             />
-            <button
-              type="button"
-              onClick={() => setShowUploadForm(false)}
-              className="mt-3 w-full bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400"
-            >
-              Cancelar
-            </button>
+            {selectedFile && (
+              <p className="text-sm text-green-600 mt-2">✅ Archivo: {selectedFile.name}</p>
+            )}
+            <div className="flex gap-2 mt-4">
+              <button
+                type="button"
+                onClick={handleUpload}
+                disabled={uploading || !selectedFile}
+                className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {uploading ? "Cargando..." : "Cargar"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowUploadForm(false)
+                  setSelectedFile(null)
+                }}
+                disabled={uploading}
+                className="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400"
+              >
+                Cancelar
+              </button>
+            </div>
           </div>
         )}
       </div>
