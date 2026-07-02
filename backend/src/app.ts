@@ -13,6 +13,8 @@ import investmentsRouter from './modules/investments/investments.controller';
 import creditCardsRouter from './modules/credit-cards/credit-cards.controller';
 import inventoryRouter from './modules/inventory/inventory.controller';
 import reportingRouter from './modules/reporting/reporting.controller';
+import paymentMethodsRouter from './modules/payment-methods/payment-methods.controller';
+import chartOfAccountsRouter from './modules/chart-of-accounts/chart-of-accounts.controller';
 
 // Inicializar Google Drive
 import { initServiceAccountAuth } from './config/google-drive';
@@ -93,6 +95,8 @@ apiV1.use('/investments', investmentsRouter);
 apiV1.use('/credit-cards', creditCardsRouter);
 apiV1.use('/inventory', inventoryRouter);
 apiV1.use('/reports', reportingRouter);
+apiV1.use('/payment-methods', paymentMethodsRouter);
+apiV1.use('/chart-of-accounts', chartOfAccountsRouter);
 
 // Registrar rutas con prefijo /api/v1
 app.use('/api/v1', apiV1);

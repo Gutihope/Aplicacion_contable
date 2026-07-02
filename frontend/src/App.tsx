@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
-import { BarChart3, DollarSign, CreditCard, Package, AlertCircle } from 'lucide-react'
+import { BarChart3, DollarSign, CreditCard, Package, AlertCircle, Settings, BookOpen } from 'lucide-react'
 import TransactionForm from './components/TransactionForm'
 import Dashboard from './components/Dashboard'
+import PaymentMethods from './components/PaymentMethods'
+import ChartOfAccounts from './components/ChartOfAccounts'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api/v1'
 
@@ -117,6 +119,32 @@ function App() {
                 Inventario
               </div>
             </button>
+            <button
+              onClick={() => setActiveTab('payment-methods')}
+              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'payment-methods'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                Métodos de Pago
+              </div>
+            </button>
+            <button
+              onClick={() => setActiveTab('chart-of-accounts')}
+              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'chart-of-accounts'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <BookOpen className="h-5 w-5" />
+                Plan de Cuentas
+              </div>
+            </button>
           </div>
         </div>
       </nav>
@@ -136,6 +164,8 @@ function App() {
             <p className="text-gray-600">Módulo de inventario - En desarrollo</p>
           </div>
         )}
+        {activeTab === 'payment-methods' && <PaymentMethods />}
+        {activeTab === 'chart-of-accounts' && <ChartOfAccounts />}
       </main>
     </div>
   )

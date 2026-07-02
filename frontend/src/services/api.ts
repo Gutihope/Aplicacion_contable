@@ -29,4 +29,9 @@ export const endpoints = {
   getInvestments: "/investments",
   recordInvestmentInterest: (id: number) => `/investments/${id}/record-interest`,
   investmentMonthClose: "/investments/month-close",
+  getPaymentMethods: "/payment-methods",
+  createPaymentMethod: "/payment-methods",
+  updatePaymentMethod: (id: number) => `/payment-methods/${id}`,
+  deletePaymentMethod: (id: number) => `/payment-methods/${id}`,
+  getPUC: "/chart-of-accounts",
 }
