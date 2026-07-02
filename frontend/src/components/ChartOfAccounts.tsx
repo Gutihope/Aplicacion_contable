@@ -106,12 +106,15 @@ export default function ChartOfAccounts() {
     setSuccess("")
 
     try {
+      console.log("Uploading file:", selectedFile.name)
       const formData = new FormData()
       formData.append("file", selectedFile)
 
       const response = await api.post("/chart-of-accounts/upload-csv", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       })
+
+      console.log("Response:", response.data)
 
       if (response.data.success) {
         setSuccess(
@@ -122,10 +125,16 @@ export default function ChartOfAccounts() {
         setTimeout(() => {
           fetchPucs()
           setSuccess("")
-        }, 1000)
+        }, 1500)
       }
     } catch (err: any) {
-      setError(err.response?.data?.error || "Error al cargar el archivo")
+      console.error("Upload error:", err)
+      const errorMsg =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        err.message ||
+        "Error al cargar el archivo"
+      setError(`❌ ${errorMsg}`)
     } finally {
       setUploading(false)
     }
