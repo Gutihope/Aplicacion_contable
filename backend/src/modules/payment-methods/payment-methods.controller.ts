@@ -1,17 +1,18 @@
 import { Router, Request, Response } from 'express'
-import { prisma } from '../../db'
+import { PrismaClient } from '@prisma/client'
 
 const router = Router()
+const prisma = new PrismaClient()
 
 // GET all payment methods
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const metodos = await prisma.metodoPagoCuenta.findMany({
+    const metodos = await prisma.metodoPago.findMany({
       include: {
         puc: true,
-        banco_tercero: true,
+        tercero: true,
       },
-      orderBy: { nombre_comercial: 'asc' },
+      orderBy: { nombre: 'asc' },
     })
 
     res.json({ success: true, data: metodos })
@@ -24,19 +25,18 @@ router.get('/', async (req: Request, res: Response) => {
 // CREATE new payment method
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { nombre_comercial, categoria_pago, tipo_origen, puc_codigo, banco_tercero_id } = req.body
+    const { nombre, tipo, puc_codigo, id_tercero } = req.body
 
-    const metodo = await prisma.metodoPagoCuenta.create({
+    const metodo = await prisma.metodoPago.create({
       data: {
-        nombre_comercial,
-        categoria_pago,
-        tipo_origen,
+        nombre,
+        tipo,
         puc_codigo: puc_codigo || null,
-        banco_tercero_id: banco_tercero_id || null,
+        id_tercero: id_tercero || null,
       },
       include: {
         puc: true,
-        banco_tercero: true,
+        tercero: true,
       },
     })
 
@@ -51,20 +51,19 @@ router.post('/', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params
-    const { nombre_comercial, categoria_pago, tipo_origen, puc_codigo, banco_tercero_id } = req.body
+    const { nombre, tipo, puc_codigo, id_tercero } = req.body
 
-    const metodo = await prisma.metodoPagoCuenta.update({
+    const metodo = await prisma.metodoPago.update({
       where: { id_metodo: parseInt(id) },
       data: {
-        nombre_comercial,
-        categoria_pago,
-        tipo_origen,
+        nombre: nombre || undefined,
+        tipo: tipo || undefined,
         puc_codigo: puc_codigo || null,
-        banco_tercero_id: banco_tercero_id || null,
+        id_tercero: id_tercero || null,
       },
       include: {
         puc: true,
-        banco_tercero: true,
+        tercero: true,
       },
     })
 
@@ -80,7 +79,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params
 
-    await prisma.metodoPagoCuenta.delete({
+    await prisma.metodoPago.delete({
       where: { id_metodo: parseInt(id) },
     })
 

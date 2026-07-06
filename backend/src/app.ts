@@ -15,6 +15,7 @@ import inventoryRouter from './modules/inventory/inventory.controller';
 import reportingRouter from './modules/reporting/reporting.controller';
 import paymentMethodsRouter from './modules/payment-methods/payment-methods.controller';
 import chartOfAccountsRouter from './modules/chart-of-accounts/chart-of-accounts.controller';
+import tercerosRouter from './modules/terceros/terceros.controller';
 
 // Inicializar Google Drive
 import { initServiceAccountAuth } from './config/google-drive';
@@ -90,13 +91,14 @@ if (driveAuth) {
 const apiV1 = express.Router();
 
 // Módulos de negocio
-apiV1.use('/transactions', transactionsRouter);
-apiV1.use('/investments', investmentsRouter);
-apiV1.use('/credit-cards', creditCardsRouter);
-apiV1.use('/inventory', inventoryRouter);
-apiV1.use('/reports', reportingRouter);
-apiV1.use('/payment-methods', paymentMethodsRouter);
+apiV1.use('/terceros', tercerosRouter);
 apiV1.use('/chart-of-accounts', chartOfAccountsRouter);
+apiV1.use('/payment-methods', paymentMethodsRouter);
+// apiV1.use('/transactions', transactionsRouter);
+// apiV1.use('/investments', investmentsRouter);
+// apiV1.use('/credit-cards', creditCardsRouter);
+// apiV1.use('/inventory', inventoryRouter);
+// apiV1.use('/reports', reportingRouter);
 
 // Registrar rutas con prefijo /api/v1
 app.use('/api/v1', apiV1);

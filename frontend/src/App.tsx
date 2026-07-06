@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { BarChart3, DollarSign, CreditCard, Package, AlertCircle, Settings, BookOpen } from 'lucide-react'
+import { BarChart3, DollarSign, CreditCard, Package, AlertCircle, Settings, BookOpen, Users } from 'lucide-react'
 import TransactionForm from './components/TransactionForm'
 import Dashboard from './components/Dashboard'
 import PaymentMethods from './components/PaymentMethods'
 import ChartOfAccounts from './components/ChartOfAccounts'
+import Terceros from './components/Terceros'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api/v1'
 
@@ -90,20 +91,7 @@ function App() {
             >
               <div className="flex items-center gap-2">
                 <DollarSign className="h-5 w-5" />
-                Transacciones
-              </div>
-            </button>
-            <button
-              onClick={() => setActiveTab('credit-cards')}
-              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
-                activeTab === 'credit-cards'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <CreditCard className="h-5 w-5" />
-                Tarjetas
+                Movimientos
               </div>
             </button>
             <button
@@ -117,6 +105,19 @@ function App() {
               <div className="flex items-center gap-2">
                 <Package className="h-5 w-5" />
                 Inventario
+              </div>
+            </button>
+            <button
+              onClick={() => setActiveTab('terceros')}
+              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'terceros'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Terceros
               </div>
             </button>
             <button
@@ -151,13 +152,8 @@ function App() {
 
       <main className="max-w-7xl mx-auto px-4 py-8">
         {activeTab === 'dashboard' && <Dashboard />}
+        {activeTab === 'terceros' && <Terceros />}
         {activeTab === 'transactions' && <TransactionForm />}
-        {activeTab === 'credit-cards' && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-2xl font-bold mb-4">Tarjetas de Crédito</h2>
-            <p className="text-gray-600">Módulo de tarjetas de crédito - En desarrollo</p>
-          </div>
-        )}
         {activeTab === 'inventory' && (
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-2xl font-bold mb-4">Inventario</h2>

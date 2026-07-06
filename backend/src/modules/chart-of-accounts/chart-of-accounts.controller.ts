@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express'
-import { prisma } from '../../db'
+import { PrismaClient } from '@prisma/client'
 import multer from 'multer'
+
+const prisma = new PrismaClient()
 
 const router = Router()
 const upload = multer({ storage: multer.memoryStorage() })
@@ -32,12 +34,11 @@ router.post('/upload-csv', upload.single('file'), async (req: Request, res: Resp
     const nombreCol = headers.find(h => h.toLowerCase().includes('nombre'))
     const nivelCol = headers.find(h => h.toLowerCase().includes('nivel'))
     const naturalezaCol = headers.find(h => h.toLowerCase().includes('naturaleza'))
-    const movimientoCol = headers.find(h => h.toLowerCase().includes('movimiento'))
 
-    if (!codigoCol || !nombreCol || !nivelCol || !naturalezaCol || !movimientoCol) {
+    if (!codigoCol || !nombreCol || !nivelCol || !naturalezaCol) {
       return res.status(400).json({
         success: false,
-        error: 'CSV must contain columns: Código, Nombre, Nivel, Naturaleza, Movimiento',
+        error: 'CSV must contain columns: Código, Nombre, Nivel, Naturaleza',
         foundColumns: headers,
       })
     }
@@ -63,10 +64,7 @@ router.post('/upload-csv', upload.single('file'), async (req: Request, res: Resp
 
         const nivel = parseInt(row[nivelCol]) || 1
         const naturaleza = row[naturalezaCol]?.toString().toUpperCase().charAt(0) || 'D'
-        const movimiento =
-          row[movimientoCol]?.toString().toLowerCase().startsWith('s') ||
-          row[movimientoCol]?.toString() === '1' ||
-          row[movimientoCol]?.toString().toLowerCase() === 'true'
+        const tipo = row['Tipo']?.toString() || 'GASTOS'
 
         const existing = await prisma.pUC.findUnique({
           where: { codigo },
@@ -75,12 +73,12 @@ router.post('/upload-csv', upload.single('file'), async (req: Request, res: Resp
         if (existing) {
           await prisma.pUC.update({
             where: { codigo },
-            data: { nombre, nivel, naturaleza, movimiento },
+            data: { nombre, nivel, naturaleza, tipo },
           })
           updatedCount++
         } else {
           await prisma.pUC.create({
-            data: { codigo, nombre, nivel, naturaleza, movimiento },
+            data: { codigo, nombre, nivel, naturaleza, tipo },
           })
           createdCount++
         }
@@ -139,6 +137,49 @@ router.get('/:codigo', async (req: Request, res: Response) => {
     res.json({ success: true, data: puc })
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error)
+    res.status(500).json({ success: false, error: msg })
+  }
+})
+
+// POST create a single PUC account
+router.post('/', async (req: Request, res: Response) => {
+  try {
+    const { codigo, nombre, nivel, naturaleza, tipo } = req.body
+
+    if (!codigo || !nombre) {
+      return res.status(400).json({
+        success: false,
+        error: 'Código y nombre son obligatorios',
+      })
+    }
+
+    const newPuc = await prisma.pUC.create({
+      data: {
+        codigo,
+        nombre,
+        nivel: nivel || 6,
+        naturaleza: naturaleza || 'D',
+        tipo: tipo || 'ACTIVO',
+      },
+    })
+
+    console.log(`✅ PUC creada: ${codigo} - ${nombre}`)
+    res.status(201).json({
+      success: true,
+      message: `Cuenta PUC ${codigo} creada exitosamente`,
+      data: newPuc,
+    })
+  } catch (error: any) {
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error('❌ Error creating PUC:', msg)
+
+    if (error.code === 'P2002') {
+      return res.status(409).json({
+        success: false,
+        error: `Ya existe una PUC con código ${req.body.codigo}`,
+      })
+    }
+
     res.status(500).json({ success: false, error: msg })
   }
 })

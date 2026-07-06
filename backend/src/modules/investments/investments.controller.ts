@@ -17,8 +17,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
       where: { estado: 'ACTIVO' },
       include: {
         tercero: true,
-        puc_inversion: true,
-        puc_ingreso: true,
+        puc: true,
       },
     });
 

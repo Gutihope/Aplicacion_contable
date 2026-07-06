@@ -267,10 +267,11 @@ export const createCreditPurchaseTransaction = async (
         id_tarjeta: data.id_tarjeta,
         asiento_id: asiento.id_asiento,
         establecimiento_tercero_id: data.establecimiento_tercero_id || 1,
-        monto_total_original: new Decimal(totalAmount),
-        cuotas_totales: data.cuotas_totales,
-        cuotas_restantes: data.cuotas_totales,
-        saldo_capital_actual: new Decimal(totalAmount),
+        monto_original: new Decimal(totalAmount),
+        cuotas_totales: data.cuotas_totales || 1,
+        cuotas_restantes: data.cuotas_totales || 1,
+        saldo_capital: new Decimal(totalAmount),
+        fecha_compra: data.fecha,
       },
     });
   }
@@ -303,7 +304,7 @@ export const recordInvestmentInterest = async (
       credito: new Decimal(0),
     },
     {
-      puc_codigo: inversion.puc_cuenta_ingreso,
+      puc_codigo: inversion.puc_cuenta_ingreso || '4305',
       id_tercero: inversion.id_tercero,
       debito: new Decimal(0),
       credito: new Decimal(monto_interes),
